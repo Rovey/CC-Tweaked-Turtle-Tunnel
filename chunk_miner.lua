@@ -5,6 +5,10 @@
 -- Constants
 local CHUNK_SIZE = 16
 
+-- Variables to track position and direction
+local posX, posY, posZ = 0, 0, 0
+local direction = "north"
+
 -- Functions
 local function refuel()
     for i = 1, 16 do
@@ -18,10 +22,10 @@ end
 
 local function ensureFuel()
     if turtle.getFuelLevel() == "unlimited" then return end
-    while turtle.getFuelLevel() < 100 do
+    while turtle.getFuelLevel() < 1000 do
         print("Low on fuel, attempting to refuel...")
         refuel()
-        if turtle.getFuelLevel() < 100 then
+        if turtle.getFuelLevel() < 1000 then
             print("Please add fuel to the turtle and press any key to continue.")
             os.pullEvent("key")
         end
@@ -47,32 +51,125 @@ local function isInventoryFull()
     return true -- All slots are filled
 end
 
+local function turnLeft()
+    turtle.turnLeft()
+    if direction == "north" then
+        direction = "west"
+    elseif direction == "west" then
+        direction = "south"
+    elseif direction == "south" then
+        direction = "east"
+    elseif direction == "east" then
+        direction = "north"
+    end
+end
+
+local function turnRight()
+    turtle.turnRight()
+    if direction == "north" then
+        direction = "east"
+    elseif direction == "east" then
+        direction = "south"
+    elseif direction == "south" then
+        direction = "west"
+    elseif direction == "west" then
+        direction = "north"
+    end
+end
+
+local function moveForward()
+    turtle.forward()
+    if direction == "north" then
+        posY = posY + 1
+    elseif direction == "south" then
+        posY = posY - 1
+    elseif direction == "east" then
+        posX = posX + 1
+    elseif direction == "west" then
+        posX = posX - 1
+    end
+end
+
+local function moveBack()
+    turtle.back()
+    if direction == "north" then
+        posY = posY - 1
+    elseif direction == "south" then
+        posY = posY + 1
+    elseif direction == "east" then
+        posX = posX - 1
+    elseif direction == "west" then
+        posX = posX + 1
+    end
+end
+
+local function moveUp()
+    turtle.up()
+    posZ = posZ + 1
+end
+
+local function moveDown()
+    turtle.down()
+    posZ = posZ - 1
+end
+
 local function returnToStart()
     print("Returning to start position...")
-    turtle.turnLeft()
-    turtle.turnLeft() -- Turn around
-    for i = 1, CHUNK_SIZE - 1 do
-        turtle.forward()
+
+    -- Move to the starting Z level
+    while posZ > 0 do
+        moveUp()
     end
-    turtle.turnRight()
-    for i = 1, CHUNK_SIZE - 1 do
-        turtle.forward()
+    while posZ < 0 do
+        moveDown()
     end
-    turtle.turnRight()
+
+    -- Move to the starting X position
+    while posX > 0 do
+        if direction ~= "west" then
+            turnLeft()
+        end
+        moveForward()
+    end
+    while posX < 0 do
+        if direction ~= "east" then
+            turnRight()
+        end
+        moveForward()
+    end
+
+    -- Move to the starting Y position
+    while posY > 0 do
+        if direction ~= "south" then
+            turnRight()
+        end
+        moveForward()
+    end
+    while posY < 0 do
+        if direction ~= "north" then
+            turnLeft()
+        end
+        moveForward()
+    end
+
+    -- Face north
+    while direction ~= "north" do
+        turnLeft()
+    end
 end
 
 local function returnToLayer(row, col)
     print("Returning to previous position...")
     for i = 1, row - 1 do
-        turtle.forward()
+        moveForward()
     end
     if row % 2 == 1 then
         for i = 1, col - 1 do
-            turtle.forward()
+            moveForward()
         end
     else
         for i = 1, CHUNK_SIZE - col do
-            turtle.forward()
+            moveForward()
         end
     end
 end
@@ -81,21 +178,21 @@ local function digAndMoveForward()
     while turtle.detect() do
         turtle.dig()
     end
-    turtle.forward()
+    moveForward()
 end
 
 local function digAndMoveDown()
     while turtle.detectDown() do
         turtle.digDown()
     end
-    turtle.down()
+    moveDown()
 end
 
 local function digAndMoveUp()
     while turtle.detectUp() do
         turtle.digUp()
     end
-    turtle.up()
+    moveUp()
 end
 
 local function mineLayer()
@@ -112,13 +209,13 @@ local function mineLayer()
         end
         if row < CHUNK_SIZE then
             if row % 2 == 1 then
-                turtle.turnRight()
+                turnRight()
                 digAndMoveForward()
-                turtle.turnRight()
+                turnRight()
             else
-                turtle.turnLeft()
+                turnLeft()
                 digAndMoveForward()
-                turtle.turnLeft()
+                turnLeft()
             end
         end
     end
@@ -126,7 +223,7 @@ end
 
 local function repositionToStartOfLayer()
     print("Repositioning to the starting corner of the new layer...")
-    turtle.turnRight()
+    turnRight()
 
     -- Move back to the starting block
     for i = 1, CHUNK_SIZE - 1 do
@@ -134,7 +231,7 @@ local function repositionToStartOfLayer()
     end
 
     -- Align with the start of the chunk again
-    turtle.turnRight()
+    turnRight()
 end
 
 local function mineChunk()
